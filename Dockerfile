@@ -2,10 +2,9 @@ FROM php:8.1-fpm-bookworm
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 ENV PATH="/var/www/vendor/bin:$PATH"
-CMD ["/usr/bin/supervisord"]
 
 RUN --mount=type=bind,source=.docker,target=/mnt apt update && \
-    apt install -y nginx supervisor wget nano cron && \
+    apt install -y nginx supervisor wget nano openssh-server && \
     apt install -y libgmpxx4ldbl libgmp-dev libwebp-dev libxpm-dev libavif-dev libicu-dev libxml2 libxml2-dev libzip4 libzip-dev libfreetype6 libfreetype6-dev libjpeg62-turbo libjpeg62-turbo-dev libpng-tools libpng16-16 libpng-dev libbz2-dev bzip2 && \
     docker-php-ext-configure gd --with-jpeg --with-webp --with-xpm --with-avif --with-freetype && \
     docker-php-ext-install bcmath opcache mysqli pdo_mysql gmp intl zip sockets bz2 pcntl soap gd && \
@@ -29,12 +28,18 @@ RUN --mount=type=bind,source=.docker,target=/mnt apt update && \
     rm -rf /etc/cron* && \
     echo '*/5 * * * * php /var/www/html/wp-cron.php' > /etc/crontab && \
     cd /tmp && \
-    wget -O tasker.tar.gz https://github.com/adhocore/gronx/releases/download/v1.8.0/tasker_1.8.0_linux_amd64.tar.gz && \
-    tar -xvf tasker.tar.gz && \
-    mv tasker_1.8.0_linux_amd64/bin/tasker /usr/local/bin/tasker && \
-    rm -fr tasker.tar.gz tasker_1.8.0_linux_amd64 && \
+    cd /tmp && \
+    curl -fsSL https://github.com/aptible/supercronic/releases/latest/download/supercronic-linux-amd64 \
+    -o /usr/local/bin/supercronic && \
+    chmod +x /usr/local/bin/supercronic && \
+    mkdir /var/run/sshd && \
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     apt-get clean autoclean && \
     apt-get autoremove --yes && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    chmod +x /entrypoint.sh
 
 COPY --chown=www-data ./ /var/www/html/
+EXPOSE 22
+CMD ["/entrypoint.sh"]
+
